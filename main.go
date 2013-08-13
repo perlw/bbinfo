@@ -11,6 +11,10 @@ func main() {
 
 	menu, _ := gtk.MenuNew()
 	menuQuit, _ := gtk.MenuItemNewWithLabel("Quit")
+	menuQuit.Connect("activate", func() {
+		gtk.MainQuit()
+	})
+	menuQuit.Show()
 	menu.Append(menuQuit)
 
 	indicator := gotk3.NewAppIndicator("test-indicator", "indicator-messages", appindicator.CategoryApplicationStatus)
