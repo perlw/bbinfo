@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/conformal/gotk3/gtk"
-	"github.com/perlw/appindicator"
-	"github.com/perlw/appindicator/gtk-extensions/gotk3"
+	"github.com/doxxan/appindicator"
+	"github.com/doxxan/appindicator/gtk-extensions/gotk3"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -12,33 +12,70 @@ import (
 	"time"
 )
 
-func parseStatusString(data string) {
-	status := strings.Split(data, ";")
-	netState, _ := strconv.Atoi(status[1])
-	lastTime, _ := strconv.Atoi(status[7])
-	connectedTime, _ := strconv.Atoi(status[9])
-	currentDown, _ := strconv.Atoi(status[10])
-	currentUp, _ := strconv.Atoi(status[11])
-	currentTransfer := currentDown + currentUp
-	totalDown, _ := strconv.Atoi(status[13])
-	totalUp, _ := strconv.Atoi(status[14])
-	totalTransfer := totalDown + totalUp
+type NetState int
 
-	fmt.Printf("netState %d\nlastTime %d\nconnectedTime %d\ncurrentTransfer %d\ntotalTransfer %d",
-		netState, lastTime, connectedTime, currentTransfer, totalTransfer)
+const (
+	StateDisconnected NetState = iota
+	StateConnected    NetState = iota
+)
+
+type NetworkStatus struct {
+	State         NetState
+	Network       string
+	LastTime      int
+	ConnectedTime int
+	CurrentUp     int
+	CurrentDown   int
+	TotalUp       int
+	TotalDown     int
 }
 
-func pollStatus() {
+var modemOnline = false
+var networkStatus = NetworkStatus{}
+
+//5;2;0;9;Telenor SE;1;;;;797;4044181;1603028;59801;1274938731;83429417;2;3608;4848;
+func parseStatusString(data string) {
+	status := strings.Split(data, ";")
+
+	netState, _ := strconv.Atoi(status[1])
+	if netState == 2 {
+		networkStatus.State = StateConnected
+	} else {
+		networkStatus.State = StateDisconnected
+	}
+	networkStatus.Network = status[4]
+	networkStatus.LastTime, _ = strconv.Atoi(status[7])
+	networkStatus.ConnectedTime, _ = strconv.Atoi(status[9])
+	networkStatus.CurrentDown, _ = strconv.Atoi(status[10])
+	networkStatus.CurrentUp, _ = strconv.Atoi(status[11])
+	//networkStatus.CurrentTransfer = networkStatus.CurrentDown + networkStatus.CurrentUp
+	networkStatus.TotalDown, _ = strconv.Atoi(status[13])
+	networkStatus.TotalUp, _ = strconv.Atoi(status[14])
+	//networkStatus.TotalTransfer = networkStatus.TotalDown + networkStatus.TotalUp
+
+	fmt.Printf(networkStatus)
+}
+
+func pollStatus(indicator *gotk3.AppIndicatorGotk3) {
 	ticker := time.Tick(time.Second)
 
 	for _ = range ticker {
 		if response, err := http.Get("http://192.168.0.1/goform/status_update"); err != nil {
+			if modemOnline {
+				modemOnline = false
+				indicator.SetIcon("network-error", "Modem offline")
+			}
 			fmt.Println("Could not connect, modem not available?")
 		} else {
 			defer response.Body.Close()
 			if data, err := ioutil.ReadAll(response.Body); err != nil {
 				fmt.Println("Error occurred while reading data.")
 			} else {
+				if !modemOnline {
+					modemOnline = true
+					indicator.SetIcon("network-idle", "Modem online")
+				}
+
 				fmt.Println(string(data))
 				parseStatusString(string(data))
 			}
@@ -57,11 +94,11 @@ func main() {
 	menuQuit.Show()
 	menu.Append(menuQuit)
 
-	indicator := gotk3.NewAppIndicator("test-indicator", "indicator-messages", appindicator.CategoryApplicationStatus)
+	indicator := gotk3.NewAppIndicator("bb-4g-modem-indicator", "network-offline", appindicator.CategoryCommunications)
 	indicator.SetStatus(appindicator.StatusActive)
 	indicator.SetMenu(menu)
 
-	go pollStatus()
+	go pollStatus(indicator)
 
 	gtk.Main()
 }
