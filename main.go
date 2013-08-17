@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/conformal/gotk3/gtk"
 	"github.com/doxxan/appindicator"
 	"github.com/doxxan/appindicator/gtk-extensions/gotk3"
+	"github.com/doxxan/gotk3/gtk"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -85,7 +85,7 @@ func parseStatusString(data string) {
 	fmt.Printf("%s (%s/%s)\n", bytesToHumanReadable(currentTransfer), bytesToHumanReadable(networkStatus.CurrentDown), bytesToHumanReadable(networkStatus.CurrentUp))
 }
 
-func pollStatus(indicator *gotk3.AppIndicatorGotk3) {
+func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent *gtk.MenuItem) {
 	ticker := time.Tick(time.Second)
 
 	for _ = range ticker {
@@ -103,13 +103,14 @@ func pollStatus(indicator *gotk3.AppIndicatorGotk3) {
 				if !modemOnline {
 					modemOnline = true
 				}
-				strength := StrengthTable[networkStatus.Strength]
-				fmt.Println(strength)
-				fmt.Println("nm-signal-" + strength)
-				indicator.SetIcon("nm-signal-"+strength, "Modem online")
-
 				fmt.Println(string(data))
 				parseStatusString(string(data))
+
+				strength := StrengthTable[networkStatus.Strength]
+				indicator.SetIcon("nm-signal-"+strength, "Modem online")
+
+				currentStr := fmt.Sprintf("Current Transfer - U:%s D:%s", bytesToHumanReadable(networkStatus.CurrentUp), bytesToHumanReadable(networkStatus.CurrentDown))
+				menuCurrent.SetLabel(currentStr)
 			}
 		}
 	}
@@ -119,6 +120,11 @@ func main() {
 	gtk.Init(nil)
 
 	menu, _ := gtk.MenuNew()
+
+	menuCurrentTransfer, _ := gtk.MenuItemNewWithLabel("Current Transfer - ##")
+	menuCurrentTransfer.Show()
+	menu.Append(menuCurrentTransfer)
+
 	menuQuit, _ := gtk.MenuItemNewWithLabel("Quit")
 	menuQuit.Connect("activate", func() {
 		gtk.MainQuit()
@@ -130,7 +136,7 @@ func main() {
 	indicator.SetStatus(appindicator.StatusActive)
 	indicator.SetMenu(menu)
 
-	go pollStatus(indicator)
+	go pollStatus(indicator, menuCurrentTransfer)
 
 	gtk.Main()
 }
