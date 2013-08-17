@@ -19,6 +19,14 @@ const (
 	StateConnected
 )
 
+const (
+	SizeKB = 1024
+	SizeMB = SizeKB * 1024
+	SizeGB = SizeMB * 1024
+	SizeTB = SizeGB * 1024
+	SizePB = SizeTB * 1024
+)
+
 var StrengthTable = []string{"0", "0", "25", "50", "75", "100"}
 
 type NetworkStatus struct {
@@ -37,7 +45,20 @@ var modemOnline = false
 var networkStatus = NetworkStatus{}
 
 func bytesToHumanReadable(bytes int) string {
-	return ""
+	switch {
+	case bytes >= SizePB:
+		return fmt.Sprintf("%.2fpb", float32(bytes)/float32(SizePB))
+	case bytes >= SizeTB:
+		return fmt.Sprintf("%.2ftb", float32(bytes)/float32(SizeTB))
+	case bytes >= SizeGB:
+		return fmt.Sprintf("%.2fgb", float32(bytes)/float32(SizeGB))
+	case bytes >= SizeMB:
+		return fmt.Sprintf("%.2fmb", float32(bytes)/float32(SizeMB))
+	case bytes >= SizeKB:
+		return fmt.Sprintf("%.2fkb", float32(bytes)/float32(SizeKB))
+	default:
+		return fmt.Sprintf("%db", bytes)
+	}
 }
 
 //5;2;0;9;Telenor SE;1;;;;797;4044181;1603028;59801;1274938731;83429417;2;3608;4848;
@@ -105,7 +126,7 @@ func main() {
 	menuQuit.Show()
 	menu.Append(menuQuit)
 
-	indicator := gotk3.NewAppIndicator("bb-4g-modem-indicator", "nm-device-wireless", appindicator.CategoryCommunications)
+	indicator := gotk3.NewAppIndicator("bb-4g-modem-indicator", "nm-signal-0", appindicator.CategoryCommunications)
 	indicator.SetStatus(appindicator.StatusActive)
 	indicator.SetMenu(menu)
 
