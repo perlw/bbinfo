@@ -85,9 +85,10 @@ func parseStatusString(data string) {
 	fmt.Printf("%s (%s/%s)\n", bytesToHumanReadable(currentTransfer), bytesToHumanReadable(networkStatus.CurrentDown), bytesToHumanReadable(networkStatus.CurrentUp))
 }
 
-func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent *gtk.MenuItem) {
+func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent, menuTotal *gtk.MenuItem) {
 	ticker := time.Tick(time.Second)
 
+	either := false
 	for _ = range ticker {
 		if response, err := http.Get("http://192.168.0.1/goform/status_update"); err != nil {
 			if modemOnline {
@@ -109,8 +110,14 @@ func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent *gtk.MenuItem) {
 				strength := StrengthTable[networkStatus.Strength]
 				indicator.SetIcon("nm-signal-"+strength, "Modem online")
 
-				currentStr := fmt.Sprintf("Current Transfer - U:%s D:%s", bytesToHumanReadable(networkStatus.CurrentUp), bytesToHumanReadable(networkStatus.CurrentDown))
-				menuCurrent.SetLabel(currentStr)
+				if either {
+					currentStr := fmt.Sprintf("Current Transfer - U:%s | D:%s", bytesToHumanReadable(networkStatus.CurrentUp), bytesToHumanReadable(networkStatus.CurrentDown))
+					menuCurrent.SetLabel(currentStr)
+				} else {
+					totalStr := fmt.Sprintf("Total Transfer - U:%s | D:%s", bytesToHumanReadable(networkStatus.TotalUp), bytesToHumanReadable(networkStatus.TotalDown))
+					menuTotal.SetLabel(totalStr)
+				}
+				either = !either
 			}
 		}
 	}
@@ -125,6 +132,10 @@ func main() {
 	menuCurrentTransfer.Show()
 	menu.Append(menuCurrentTransfer)
 
+	menuTotalTransfer, _ := gtk.MenuItemNewWithLabel("Total Transfer - ##")
+	menuTotalTransfer.Show()
+	menu.Append(menuTotalTransfer)
+
 	menuQuit, _ := gtk.MenuItemNewWithLabel("Quit")
 	menuQuit.Connect("activate", func() {
 		gtk.MainQuit()
@@ -136,7 +147,7 @@ func main() {
 	indicator.SetStatus(appindicator.StatusActive)
 	indicator.SetMenu(menu)
 
-	go pollStatus(indicator, menuCurrentTransfer)
+	go pollStatus(indicator, menuCurrentTransfer, menuTotalTransfer)
 
 	gtk.Main()
 }
