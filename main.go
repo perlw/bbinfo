@@ -34,10 +34,13 @@ var RadioTable = []string{"-", "LTE", "EVD0", "CDMA1x", "WCDMA", "GSM", "HSUPA",
 type NetworkStatus struct {
 	Strength      int
 	State         NetState
+	RoamStatus    int
 	Radio         int
 	Network       string
 	PINStatus     int
+	ShowUnreadSMS int
 	LastTime      int
+	GetUnreadSMS  int
 	ConnectedTime int
 	CurrentUp     int
 	CurrentDown   int
@@ -77,10 +80,13 @@ func parseStatusString(data string) {
 	} else {
 		networkStatus.State = StateDisconnected
 	}
+	networkStatus.RoamStatus, _ = strconv.Atoi(status[2])
 	networkStatus.Radio, _ = strconv.Atoi(status[3])
 	networkStatus.Network = status[4]
 	networkStatus.PINStatus, _ = strconv.Atoi(status[5])
+	networkStatus.ShowUnreadSMS, _ = strconv.Atoi(status[6])
 	networkStatus.LastTime, _ = strconv.Atoi(status[7])
+	networkStatus.GetUnreadSMS, _ = strconv.Atoi(status[8])
 	networkStatus.ConnectedTime, _ = strconv.Atoi(status[9])
 	networkStatus.CurrentDown, _ = strconv.Atoi(status[10])
 	networkStatus.CurrentUp, _ = strconv.Atoi(status[11])
