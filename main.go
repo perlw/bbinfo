@@ -6,6 +6,7 @@ import (
 	"github.com/doxxan/appindicator/gtk-extensions/gotk3"
 	"github.com/doxxan/gotk3/gtk"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,17 +29,21 @@ const (
 )
 
 var StrengthTable = []string{"0", "0", "25", "50", "75", "100"}
+var RadioTable = []string{"-", "LTE", "EVD0", "CDMA1x", "WCDMA", "GSM", "HSUPA", "HSPA+", "DC-HSPA+", "EDGE", "GPRS"}
 
 type NetworkStatus struct {
 	Strength      int
 	State         NetState
+	Radio         int
 	Network       string
+	PINStatus     int
 	LastTime      int
 	ConnectedTime int
 	CurrentUp     int
 	CurrentDown   int
 	TotalUp       int
 	TotalDown     int
+	ServiceStatus int
 }
 
 var modemOnline = false
@@ -47,17 +52,17 @@ var networkStatus = NetworkStatus{}
 func bytesToHumanReadable(bytes int) string {
 	switch {
 	case bytes >= SizePB:
-		return fmt.Sprintf("%.2fpb", float32(bytes)/float32(SizePB))
+		return fmt.Sprintf("%.2fPB", float32(bytes)/float32(SizePB))
 	case bytes >= SizeTB:
-		return fmt.Sprintf("%.2ftb", float32(bytes)/float32(SizeTB))
+		return fmt.Sprintf("%.2fTB", float32(bytes)/float32(SizeTB))
 	case bytes >= SizeGB:
-		return fmt.Sprintf("%.2fgb", float32(bytes)/float32(SizeGB))
+		return fmt.Sprintf("%.2fGB", float32(bytes)/float32(SizeGB))
 	case bytes >= SizeMB:
-		return fmt.Sprintf("%.2fmb", float32(bytes)/float32(SizeMB))
+		return fmt.Sprintf("%.2fMB", float32(bytes)/float32(SizeMB))
 	case bytes >= SizeKB:
-		return fmt.Sprintf("%.2fkb", float32(bytes)/float32(SizeKB))
+		return fmt.Sprintf("%.2fKB", float32(bytes)/float32(SizeKB))
 	default:
-		return fmt.Sprintf("%db", bytes)
+		return fmt.Sprintf("%dB", bytes)
 	}
 }
 
@@ -72,17 +77,32 @@ func parseStatusString(data string) {
 	} else {
 		networkStatus.State = StateDisconnected
 	}
+	networkStatus.Radio, _ = strconv.Atoi(status[3])
 	networkStatus.Network = status[4]
+	networkStatus.PINStatus, _ = strconv.Atoi(status[5])
 	networkStatus.LastTime, _ = strconv.Atoi(status[7])
 	networkStatus.ConnectedTime, _ = strconv.Atoi(status[9])
 	networkStatus.CurrentDown, _ = strconv.Atoi(status[10])
 	networkStatus.CurrentUp, _ = strconv.Atoi(status[11])
 	networkStatus.TotalDown, _ = strconv.Atoi(status[13])
 	networkStatus.TotalUp, _ = strconv.Atoi(status[14])
+	networkStatus.ServiceStatus, _ = strconv.Atoi(status[15])
 
-	fmt.Println(networkStatus)
-	currentTransfer := networkStatus.CurrentDown + networkStatus.CurrentUp
-	fmt.Printf("%s (%s/%s)\n", bytesToHumanReadable(currentTransfer), bytesToHumanReadable(networkStatus.CurrentDown), bytesToHumanReadable(networkStatus.CurrentUp))
+	if networkStatus.Radio > -1 {
+		fmt.Printf("Radio: %s\n", RadioTable[networkStatus.Radio])
+	}
+	fmt.Printf("Network: %s\n", networkStatus.Network)
+	fmt.Printf("PINStatus: %d\n", networkStatus.PINStatus)
+	//fmt.Printf("LastTime: %s\n", time.Unix(int64(networkStatus.LastTime), 0).String())
+	hour := networkStatus.ConnectedTime / 3000
+	min := networkStatus.ConnectedTime / 60
+	sec := networkStatus.ConnectedTime - (hour * 360) - (min * 60)
+	fmt.Printf("ConnectedTime: %d:%d:%d\n", hour, min, sec)
+	fmt.Printf("CurrentDown: %s\n", bytesToHumanReadable(networkStatus.CurrentDown))
+	fmt.Printf("CurrentUp: %s\n", bytesToHumanReadable(networkStatus.CurrentUp))
+	fmt.Printf("TotalDown: %s\n", bytesToHumanReadable(networkStatus.TotalDown))
+	fmt.Printf("TotalUp: %s\n", bytesToHumanReadable(networkStatus.TotalUp))
+	fmt.Printf("ServiceStatus: %d\n", networkStatus.ServiceStatus)
 }
 
 func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent, menuTotal *gtk.MenuItem) {
@@ -90,7 +110,8 @@ func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent, menuTotal *gtk.
 
 	either := false
 	for _ = range ticker {
-		if response, err := http.Get("http://192.168.0.1/goform/status_update"); err != nil {
+		req := fmt.Sprintf("http://192.168.0.1/goform/status_update?rd=%f", rand.Float32())
+		if response, err := http.Get(req); err != nil {
 			if modemOnline {
 				modemOnline = false
 				indicator.SetIcon("network-error", "Modem offline")
