@@ -1,8 +1,8 @@
 package modemstatus
 
 import (
-	"bbinfo/bytesconv"
 	"fmt"
+	"github.com/doxxan/bbinfo/bytesconv"
 	"io/ioutil"
 	"math/rand"
 	"net/http"

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bbinfo/bytesconv"
-	"bbinfo/modemstatus"
 	"fmt"
 	"github.com/doxxan/appindicator"
 	"github.com/doxxan/appindicator/gtk-extensions/gotk3"
+	"github.com/doxxan/bbinfo/bytesconv"
+	"github.com/doxxan/bbinfo/modemstatus"
 	"github.com/doxxan/gotk3/gtk"
 	"time"
 )
