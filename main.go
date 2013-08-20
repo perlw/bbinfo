@@ -114,9 +114,8 @@ func parseStatusString(data string) {
 func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent, menuTotal *gtk.MenuItem) {
 	ticker := time.Tick(time.Second)
 
-	either := false
 	for _ = range ticker {
-		req := fmt.Sprintf("http://192.168.0.1/goform/status_update?rd=%f", rand.Float32())
+		req := fmt.Sprintf("http://192.168.0.1/goform/status_update?status_flag=1&rd=%f", rand.Float32())
 		if response, err := http.Get(req); err != nil {
 			if modemOnline {
 				modemOnline = false
@@ -136,15 +135,19 @@ func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent, menuTotal *gtk.
 
 				strength := StrengthTable[networkStatus.Strength]
 				indicator.SetIcon("nm-signal-"+strength, "Modem online")
-
-				if either {
-					currentStr := fmt.Sprintf("Current Transfer - U:%s | D:%s", bytesToHumanReadable(networkStatus.CurrentUp), bytesToHumanReadable(networkStatus.CurrentDown))
-					menuCurrent.SetLabel(currentStr)
+				if networkStatus.Radio > -1 {
+					indicator.SetLabel(RadioTable[networkStatus.Radio], "")
 				} else {
-					totalStr := fmt.Sprintf("Total Transfer - U:%s | D:%s", bytesToHumanReadable(networkStatus.TotalUp), bytesToHumanReadable(networkStatus.TotalDown))
-					menuTotal.SetLabel(totalStr)
+					indicator.SetLabel("", "")
 				}
-				either = !either
+
+				<-time.After(time.Millisecond * 10)
+				currentStr := fmt.Sprintf("Current Transfer - U:%s | D:%s", bytesToHumanReadable(networkStatus.CurrentUp), bytesToHumanReadable(networkStatus.CurrentDown))
+				menuCurrent.SetLabel(currentStr)
+
+				<-time.After(time.Millisecond * 10)
+				totalStr := fmt.Sprintf("Total Transfer - U:%s | D:%s", bytesToHumanReadable(networkStatus.TotalUp), bytesToHumanReadable(networkStatus.TotalDown))
+				menuTotal.SetLabel(totalStr)
 			}
 		}
 	}
