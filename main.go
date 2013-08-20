@@ -47,10 +47,29 @@ type NetworkStatus struct {
 	TotalUp       int
 	TotalDown     int
 	ServiceStatus int
+	SpeedDown     int
+	SpeedUp       int
 }
 
 var modemOnline = false
 var networkStatus = NetworkStatus{}
+
+func bytesToQualifier(bytes int) int {
+	switch {
+	case bytes >= SizePB:
+		return SizePB
+	case bytes >= SizeTB:
+		return SizeTB
+	case bytes >= SizeGB:
+		return SizeGB
+	case bytes >= SizeMB:
+		return SizeMB
+	case bytes >= SizeKB:
+		return SizeKB
+	default:
+		return 1
+	}
+}
 
 func bytesToHumanReadable(bytes int) string {
 	switch {
@@ -67,6 +86,40 @@ func bytesToHumanReadable(bytes int) string {
 	default:
 		return fmt.Sprintf("%dB", bytes)
 	}
+}
+
+func qualifierToString(qualifier int) string {
+	switch qualifier {
+	case SizePB:
+		return "PB"
+	case SizeTB:
+		return "TB"
+	case SizeGB:
+		return "GB"
+	case SizeMB:
+		return "MB"
+	case SizeKB:
+		return "KB"
+	default:
+		return "B"
+	}
+}
+
+func transferToHumanReadable(upBytes, downBytes int) (up float32, down float32, qualifier string) {
+	upQualifier := bytesToQualifier(upBytes)
+	downQualifier := bytesToQualifier(downBytes)
+
+	if upQualifier > downQualifier {
+		up = float32(upBytes) / float32(upQualifier)
+		down = float32(downBytes) / float32(upQualifier)
+		qualifier = qualifierToString(upQualifier)
+	} else {
+		up = float32(upBytes) / float32(downQualifier)
+		down = float32(downBytes) / float32(downQualifier)
+		qualifier = qualifierToString(downQualifier)
+	}
+
+	return up, down, qualifier
 }
 
 //5;2;0;9;Telenor SE;1;;;;797;4044181;1603028;59801;1274938731;83429417;2;3608;4848;
@@ -93,6 +146,8 @@ func parseStatusString(data string) {
 	networkStatus.TotalDown, _ = strconv.Atoi(status[13])
 	networkStatus.TotalUp, _ = strconv.Atoi(status[14])
 	networkStatus.ServiceStatus, _ = strconv.Atoi(status[15])
+	networkStatus.SpeedDown, _ = strconv.Atoi(status[16])
+	networkStatus.SpeedUp, _ = strconv.Atoi(status[17])
 
 	if networkStatus.Radio > -1 {
 		fmt.Printf("Radio: %s\n", RadioTable[networkStatus.Radio])
@@ -109,6 +164,8 @@ func parseStatusString(data string) {
 	fmt.Printf("TotalDown: %s\n", bytesToHumanReadable(networkStatus.TotalDown))
 	fmt.Printf("TotalUp: %s\n", bytesToHumanReadable(networkStatus.TotalUp))
 	fmt.Printf("ServiceStatus: %d\n", networkStatus.ServiceStatus)
+	fmt.Printf("SpeedDown: %s\n", bytesToHumanReadable(networkStatus.SpeedDown))
+	fmt.Printf("SpeedUp: %s\n", bytesToHumanReadable(networkStatus.SpeedUp))
 }
 
 func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent, menuTotal *gtk.MenuItem) {
@@ -120,6 +177,7 @@ func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent, menuTotal *gtk.
 			if modemOnline {
 				modemOnline = false
 				indicator.SetIcon("network-error", "Modem offline")
+				indicator.SetLabel("", "")
 			}
 			fmt.Println("Could not connect, modem not available?")
 		} else {
@@ -142,11 +200,13 @@ func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent, menuTotal *gtk.
 				}
 
 				<-time.After(time.Millisecond * 10)
-				currentStr := fmt.Sprintf("Current Transfer - U:%s | D:%s", bytesToHumanReadable(networkStatus.CurrentUp), bytesToHumanReadable(networkStatus.CurrentDown))
+				cUp, cDown, cQual := transferToHumanReadable(networkStatus.CurrentUp, networkStatus.CurrentDown)
+				currentStr := fmt.Sprintf("Current Transfer - %.2f/%.2f%s", cUp, cDown, cQual)
 				menuCurrent.SetLabel(currentStr)
 
 				<-time.After(time.Millisecond * 10)
-				totalStr := fmt.Sprintf("Total Transfer - U:%s | D:%s", bytesToHumanReadable(networkStatus.TotalUp), bytesToHumanReadable(networkStatus.TotalDown))
+				tUp, tDown, tQual := transferToHumanReadable(networkStatus.TotalUp, networkStatus.TotalDown)
+				totalStr := fmt.Sprintf("Total Transfer - %.2f/%.2f%s", tUp, tDown, tQual)
 				menuTotal.SetLabel(totalStr)
 			}
 		}
@@ -173,7 +233,7 @@ func main() {
 	menuQuit.Show()
 	menu.Append(menuQuit)
 
-	indicator := gotk3.NewAppIndicator("bb-4g-modem-indicator", "nm-signal-0", appindicator.CategoryCommunications)
+	indicator := gotk3.NewAppIndicator("bb-4g-modem-indicator", "network-error", appindicator.CategoryCommunications)
 	indicator.SetStatus(appindicator.StatusActive)
 	indicator.SetMenu(menu)
 
