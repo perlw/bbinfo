@@ -47,6 +47,13 @@ type NetworkStatus struct {
 var modemOnline = false
 var networkStatus = NetworkStatus{}
 
+func timestampToString(timestamp int) string {
+	hour := timestamp / 3000
+	min := timestamp / 60
+	sec := timestamp - (hour * 360) - (min * 60)
+	return fmt.Sprintf("%02d:%02d:%02d", hour, min, sec)
+}
+
 //5;2;0;9;Telenor SE;1;;;;797;4044181;1603028;59801;1274938731;83429417;2;3608;4848;
 func parseStatusString(data string) {
 	status := strings.Split(data, ";")
@@ -80,10 +87,7 @@ func parseStatusString(data string) {
 	fmt.Printf("Network: %s\n", networkStatus.Network)
 	fmt.Printf("PINStatus: %d\n", networkStatus.PINStatus)
 	//fmt.Printf("LastTime: %s\n", time.Unix(int64(networkStatus.LastTime), 0).String())
-	hour := networkStatus.ConnectedTime / 3000
-	min := networkStatus.ConnectedTime / 60
-	sec := networkStatus.ConnectedTime - (hour * 360) - (min * 60)
-	fmt.Printf("ConnectedTime: %d:%d:%d\n", hour, min, sec)
+	fmt.Printf("ConnectedTime: %s\n", timestampToString(networkStatus.ConnectedTime))
 	fmt.Printf("CurrentDown: %s\n", bytesconv.ToHumanReadable(networkStatus.CurrentDown))
 	fmt.Printf("CurrentUp: %s\n", bytesconv.ToHumanReadable(networkStatus.CurrentUp))
 	fmt.Printf("TotalDown: %s\n", bytesconv.ToHumanReadable(networkStatus.TotalDown))
@@ -119,7 +123,7 @@ func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent, menuTotal *gtk.
 				strength := StrengthTable[networkStatus.Strength]
 				indicator.SetIcon("nm-signal-"+strength, "Modem online")
 				if networkStatus.Radio > -1 {
-					indicator.SetLabel(RadioTable[networkStatus.Radio], "")
+					indicator.SetLabel(timestampToString(networkStatus.ConnectedTime), "")
 				} else {
 					indicator.SetLabel("", "")
 				}
