@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bbinfo/bytesconv"
 	"fmt"
 	"github.com/doxxan/appindicator"
 	"github.com/doxxan/appindicator/gtk-extensions/gotk3"
@@ -18,14 +19,6 @@ type NetState int
 const (
 	StateDisconnected NetState = iota
 	StateConnected
-)
-
-const (
-	SizeKB = 1024
-	SizeMB = SizeKB * 1024
-	SizeGB = SizeMB * 1024
-	SizeTB = SizeGB * 1024
-	SizePB = SizeTB * 1024
 )
 
 var StrengthTable = []string{"0", "0", "25", "50", "75", "100"}
@@ -53,74 +46,6 @@ type NetworkStatus struct {
 
 var modemOnline = false
 var networkStatus = NetworkStatus{}
-
-func bytesToQualifier(bytes int) int {
-	switch {
-	case bytes >= SizePB:
-		return SizePB
-	case bytes >= SizeTB:
-		return SizeTB
-	case bytes >= SizeGB:
-		return SizeGB
-	case bytes >= SizeMB:
-		return SizeMB
-	case bytes >= SizeKB:
-		return SizeKB
-	default:
-		return 1
-	}
-}
-
-func bytesToHumanReadable(bytes int) string {
-	switch {
-	case bytes >= SizePB:
-		return fmt.Sprintf("%.2fPB", float32(bytes)/float32(SizePB))
-	case bytes >= SizeTB:
-		return fmt.Sprintf("%.2fTB", float32(bytes)/float32(SizeTB))
-	case bytes >= SizeGB:
-		return fmt.Sprintf("%.2fGB", float32(bytes)/float32(SizeGB))
-	case bytes >= SizeMB:
-		return fmt.Sprintf("%.2fMB", float32(bytes)/float32(SizeMB))
-	case bytes >= SizeKB:
-		return fmt.Sprintf("%.2fKB", float32(bytes)/float32(SizeKB))
-	default:
-		return fmt.Sprintf("%dB", bytes)
-	}
-}
-
-func qualifierToString(qualifier int) string {
-	switch qualifier {
-	case SizePB:
-		return "PB"
-	case SizeTB:
-		return "TB"
-	case SizeGB:
-		return "GB"
-	case SizeMB:
-		return "MB"
-	case SizeKB:
-		return "KB"
-	default:
-		return "B"
-	}
-}
-
-func transferToHumanReadable(upBytes, downBytes int) (up float32, down float32, qualifier string) {
-	upQualifier := bytesToQualifier(upBytes)
-	downQualifier := bytesToQualifier(downBytes)
-
-	if upQualifier > downQualifier {
-		up = float32(upBytes) / float32(upQualifier)
-		down = float32(downBytes) / float32(upQualifier)
-		qualifier = qualifierToString(upQualifier)
-	} else {
-		up = float32(upBytes) / float32(downQualifier)
-		down = float32(downBytes) / float32(downQualifier)
-		qualifier = qualifierToString(downQualifier)
-	}
-
-	return up, down, qualifier
-}
 
 //5;2;0;9;Telenor SE;1;;;;797;4044181;1603028;59801;1274938731;83429417;2;3608;4848;
 func parseStatusString(data string) {
@@ -159,13 +84,13 @@ func parseStatusString(data string) {
 	min := networkStatus.ConnectedTime / 60
 	sec := networkStatus.ConnectedTime - (hour * 360) - (min * 60)
 	fmt.Printf("ConnectedTime: %d:%d:%d\n", hour, min, sec)
-	fmt.Printf("CurrentDown: %s\n", bytesToHumanReadable(networkStatus.CurrentDown))
-	fmt.Printf("CurrentUp: %s\n", bytesToHumanReadable(networkStatus.CurrentUp))
-	fmt.Printf("TotalDown: %s\n", bytesToHumanReadable(networkStatus.TotalDown))
-	fmt.Printf("TotalUp: %s\n", bytesToHumanReadable(networkStatus.TotalUp))
+	fmt.Printf("CurrentDown: %s\n", bytesconv.ToHumanReadable(networkStatus.CurrentDown))
+	fmt.Printf("CurrentUp: %s\n", bytesconv.ToHumanReadable(networkStatus.CurrentUp))
+	fmt.Printf("TotalDown: %s\n", bytesconv.ToHumanReadable(networkStatus.TotalDown))
+	fmt.Printf("TotalUp: %s\n", bytesconv.ToHumanReadable(networkStatus.TotalUp))
 	fmt.Printf("ServiceStatus: %d\n", networkStatus.ServiceStatus)
-	fmt.Printf("SpeedDown: %s\n", bytesToHumanReadable(networkStatus.SpeedDown))
-	fmt.Printf("SpeedUp: %s\n", bytesToHumanReadable(networkStatus.SpeedUp))
+	fmt.Printf("SpeedDown: %s\n", bytesconv.ToHumanReadable(networkStatus.SpeedDown))
+	fmt.Printf("SpeedUp: %s\n", bytesconv.ToHumanReadable(networkStatus.SpeedUp))
 }
 
 func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent, menuTotal *gtk.MenuItem) {
@@ -200,12 +125,12 @@ func pollStatus(indicator *gotk3.AppIndicatorGotk3, menuCurrent, menuTotal *gtk.
 				}
 
 				<-time.After(time.Millisecond * 10)
-				cUp, cDown, cQual := transferToHumanReadable(networkStatus.CurrentUp, networkStatus.CurrentDown)
+				cUp, cDown, cQual := bytesconv.QualifyTransfer(networkStatus.CurrentUp, networkStatus.CurrentDown)
 				currentStr := fmt.Sprintf("Current Transfer - %.2f/%.2f%s", cUp, cDown, cQual)
 				menuCurrent.SetLabel(currentStr)
 
 				<-time.After(time.Millisecond * 10)
-				tUp, tDown, tQual := transferToHumanReadable(networkStatus.TotalUp, networkStatus.TotalDown)
+				tUp, tDown, tQual := bytesconv.QualifyTransfer(networkStatus.TotalUp, networkStatus.TotalDown)
 				totalStr := fmt.Sprintf("Total Transfer - %.2f/%.2f%s", tUp, tDown, tQual)
 				menuTotal.SetLabel(totalStr)
 			}
