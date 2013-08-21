@@ -29,9 +29,9 @@ type Status struct {
 	Network       string
 	PINStatus     int
 	ShowUnreadSMS int
-	LastTime      int
+	LastTime      int64
 	GetUnreadSMS  int
-	ConnectedTime int
+	ConnectedTime int64
 	CurrentUp     int
 	CurrentDown   int
 	TotalUp       int
@@ -49,7 +49,7 @@ func (s Status) ToString() string {
 	str += fmt.Sprintf("Network: %s\n", s.Network)
 	str += fmt.Sprintf("PINStatus: %d\n", s.PINStatus)
 	//str += fmt.Sprintf("LastTime: %s\n", time.Unix(int64(s.LastTime), 0).String())
-	str += fmt.Sprintf("ConnectedTime: %s\n", TimestampToString(s.ConnectedTime))
+	str += fmt.Sprintf("ConnectedTime: %s (%d)\n", TimestampToString(s.ConnectedTime), s.ConnectedTime)
 	str += fmt.Sprintf("CurrentDown: %s\n", bytesconv.ToHumanReadable(s.CurrentDown))
 	str += fmt.Sprintf("CurrentUp: %s\n", bytesconv.ToHumanReadable(s.CurrentUp))
 	str += fmt.Sprintf("TotalDown: %s\n", bytesconv.ToHumanReadable(s.TotalDown))
@@ -78,9 +78,9 @@ func parseStatusString(data string) Status {
 	modemStatus.Network = status[4]
 	modemStatus.PINStatus, _ = strconv.Atoi(status[5])
 	modemStatus.ShowUnreadSMS, _ = strconv.Atoi(status[6])
-	modemStatus.LastTime, _ = strconv.Atoi(status[7])
+	modemStatus.LastTime, _ = strconv.ParseInt(status[7], 10, 64)
 	modemStatus.GetUnreadSMS, _ = strconv.Atoi(status[8])
-	modemStatus.ConnectedTime, _ = strconv.Atoi(status[9])
+	modemStatus.ConnectedTime, _ = strconv.ParseInt(status[9], 10, 64)
 	modemStatus.CurrentDown, _ = strconv.Atoi(status[10])
 	modemStatus.CurrentUp, _ = strconv.Atoi(status[11])
 	modemStatus.TotalDown, _ = strconv.Atoi(status[13])
@@ -92,10 +92,10 @@ func parseStatusString(data string) Status {
 	return modemStatus
 }
 
-func TimestampToString(timestamp int) string {
-	hour := timestamp / 3000
-	min := timestamp / 60
-	sec := timestamp - (hour * 360) - (min * 60)
+func TimestampToString(timestamp int64) string {
+	hour := timestamp / 3600
+	min := (timestamp - (hour * 3600)) / 60
+	sec := timestamp - (hour * 3600) - (min * 60)
 	return fmt.Sprintf("%02d:%02d:%02d", hour, min, sec)
 }
 
