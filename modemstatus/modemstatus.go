@@ -62,7 +62,7 @@ func (s Status) ToString() string {
 }
 
 //5;2;0;9;Telenor SE;1;;;;797;4044181;1603028;59801;1274938731;83429417;2;3608;4848;
-func parseStatusString(data string) *Status {
+func parseStatusString(data string) Status {
 	status := strings.Split(data, ";")
 
 	modemStatus := Status{}
@@ -89,7 +89,7 @@ func parseStatusString(data string) *Status {
 	modemStatus.SpeedDown, _ = strconv.Atoi(status[16])
 	modemStatus.SpeedUp, _ = strconv.Atoi(status[17])
 
-	return &modemStatus
+	return modemStatus
 }
 
 func TimestampToString(timestamp int) string {
@@ -99,7 +99,7 @@ func TimestampToString(timestamp int) string {
 	return fmt.Sprintf("%02d:%02d:%02d", hour, min, sec)
 }
 
-func DoPoll(tickFunc func(*Status), errFunc func(error)) {
+func DoPoll(tickFunc func(Status), errFunc func(error)) {
 	ticker := time.Tick(time.Second)
 
 	for _ = range ticker {
@@ -108,13 +108,13 @@ func DoPoll(tickFunc func(*Status), errFunc func(error)) {
 			errFunc(err)
 			fmt.Println("Could not connect, modem not available?")
 		} else {
-			defer response.Body.Close()
 			if data, err := ioutil.ReadAll(response.Body); err != nil {
 				fmt.Println("Error occurred while reading data.")
 			} else {
 				status := parseStatusString(string(data))
 				tickFunc(status)
 			}
+			response.Body.Close()
 		}
 	}
 }

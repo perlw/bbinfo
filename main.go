@@ -35,7 +35,7 @@ func main() {
 	indicator.SetMenu(menu)
 
 	go func() {
-		modemstatus.DoPoll(func(status *modemstatus.Status) {
+		modemstatus.DoPoll(func(status modemstatus.Status) {
 			// Debug
 			//fmt.Println(status.ToString())
 
